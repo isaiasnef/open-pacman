@@ -128,6 +128,18 @@ function decideGhost( game, g ) {
   const px = Math.round( p.x );
   const py = Math.round( p.y );
 
+  // Salida de pen explicita: dentro del recinto (pen + fila de puerta),
+  // navegar a la columna de puerta mas cercana y subir hasta salir.
+  if ( g.y >= 12 && g.y <= 15 && g.x >= 11 && g.x <= 16 ) {
+    const door = Math.abs( g.x - 13 ) <= Math.abs( g.x - 14 ) ? 13 : 14;
+    if ( g.x !== door ) {
+      g.dir = g.x < door ? 'right' : 'left';
+    } else {
+      g.dir = 'up'; // subir a traves de la puerta hasta el corredor
+    }
+    return;
+  }
+
   // Clyde: si esta cerca (Manhattan <= 8) elige direccion aleatoria.
   if ( g.kind === 'clyde' ) {
     const dist = Math.abs( g.x - px ) + Math.abs( g.y - py );
