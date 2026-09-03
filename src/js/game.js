@@ -23,6 +23,9 @@ function createGame() {
   let dots = 0;
   for ( const row of grid ) for ( const v of row ) if ( v === 2 ) dots++;
 
+  // T0: instante de arranque para la activacion escalonada (tiempo real).
+  const T0 = performance.now();
+
   return {
     state: 'start',
     score: 0,
@@ -36,12 +39,14 @@ function createGame() {
       nextDir: null,
       speed: PACMAN_SPEED,
     },
-    ghosts: GHOST_STARTS.map( ( g ) => ( {
+    ghosts: GHOST_STARTS.map( ( g, i ) => ( {
       x: g.x,
       y: g.y,
       dir: 'up',
       speed: GHOST_SPEED,
       kind: g.kind,
+      active: false,
+      activateAt: T0 + i * 2000,
     } ) ),
   };
 }
@@ -164,6 +169,7 @@ function decideGhost( game, g ) {
 }
 
 function moveGhost( game, g ) {
+  if ( !g.active ) return; // congelado hasta su turno de activacion
   const grid = game.grid;
   const width = grid[ 0 ].length;
 
@@ -197,8 +203,14 @@ function collides( a, b ) {
   return Math.abs( a.x - b.x ) < 0.5 && Math.abs( a.y - b.y ) < 0.5;
 }
 
+function activateDue( game ) {
+  const now = performance.now();
+  for ( const g of game.ghosts ) if ( !g.active && now >= g.activateAt ) g.active = true;
+}
+
 function update( game ) {
   movePacman( game );
+  activateDue( game );
   game.ghosts.forEach( ( g ) => moveGhost( game, g ) );
 
   for ( const g of game.ghosts ) {
