@@ -23,6 +23,9 @@ function createGame() {
   let dots = 0;
   for ( const row of grid ) for ( const v of row ) if ( v === 2 ) dots++;
 
+  // T0: instante de arranque para la activacion escalonada (tiempo real).
+  const T0 = performance.now();
+
   return {
     state: 'start',
     score: 0,
@@ -36,12 +39,14 @@ function createGame() {
       nextDir: null,
       speed: PACMAN_SPEED,
     },
-    ghosts: GHOST_STARTS.map( ( g ) => ( {
+    ghosts: GHOST_STARTS.map( ( g, i ) => ( {
       x: g.x,
       y: g.y,
       dir: 'up',
       speed: GHOST_SPEED,
       kind: g.kind,
+      active: false,
+      activateAt: T0 + i * 2000,
     } ) ),
   };
 }
@@ -123,6 +128,18 @@ function decideGhost( game, g ) {
   const px = Math.round( p.x );
   const py = Math.round( p.y );
 
+  // Salida de pen explicita: dentro del recinto (pen + fila de puerta),
+  // navegar a la columna de puerta mas cercana y subir hasta salir.
+  if ( g.y >= 12 && g.y <= 15 && g.x >= 11 && g.x <= 16 ) {
+    const door = Math.abs( g.x - 13 ) <= Math.abs( g.x - 14 ) ? 13 : 14;
+    if ( g.x !== door ) {
+      g.dir = g.x < door ? 'right' : 'left';
+    } else {
+      g.dir = 'up'; // subir a traves de la puerta hasta el corredor
+    }
+    return;
+  }
+
   // Clyde: si esta cerca (Manhattan <= 8) elige direccion aleatoria.
   if ( g.kind === 'clyde' ) {
     const dist = Math.abs( g.x - px ) + Math.abs( g.y - py );
@@ -164,6 +181,7 @@ function decideGhost( game, g ) {
 }
 
 function moveGhost( game, g ) {
+  if ( !g.active ) return; // congelado hasta su turno de activacion
   const grid = game.grid;
   const width = grid[ 0 ].length;
 
@@ -186,10 +204,15 @@ function resetPositions( game ) {
   p.y = PACMAN_START.y;
   p.dir = 'left';
   p.nextDir = null;
+
+  // Repetir el escalonado: nuevo T0 y offsets i*2000 para cada fantasma.
+  const T0 = performance.now();
   game.ghosts.forEach( ( g, i ) => {
     g.x = GHOST_STARTS[ i ].x;
     g.y = GHOST_STARTS[ i ].y;
     g.dir = 'up';
+    g.active = false;
+    g.activateAt = T0 + i * 2000;
   } );
 }
 
@@ -197,8 +220,14 @@ function collides( a, b ) {
   return Math.abs( a.x - b.x ) < 0.5 && Math.abs( a.y - b.y ) < 0.5;
 }
 
+function activateDue( game ) {
+  const now = performance.now();
+  for ( const g of game.ghosts ) if ( !g.active && now >= g.activateAt ) g.active = true;
+}
+
 function update( game ) {
   movePacman( game );
+  activateDue( game );
   game.ghosts.forEach( ( g ) => moveGhost( game, g ) );
 
   for ( const g of game.ghosts ) {
