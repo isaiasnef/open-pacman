@@ -204,10 +204,15 @@ function resetPositions( game ) {
   p.y = PACMAN_START.y;
   p.dir = 'left';
   p.nextDir = null;
+
+  // Repetir el escalonado: nuevo T0 y offsets i*2000 para cada fantasma.
+  const T0 = performance.now();
   game.ghosts.forEach( ( g, i ) => {
     g.x = GHOST_STARTS[ i ].x;
     g.y = GHOST_STARTS[ i ].y;
     g.dir = 'up';
+    g.active = false;
+    g.activateAt = T0 + i * 2000;
   } );
 }
 
