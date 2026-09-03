@@ -120,25 +120,47 @@ function decideGhost( game, g ) {
   // Sin salida (callejon): permitir el giro de 180.
   const choices = options.length ? options : [ '' + OPPOSITE[ g.dir ] ];
 
-  if ( g.kind === 'hunter' ) {
-    const px = Math.round( p.x );
-    const py = Math.round( p.y );
-    let best = choices[ 0 ];
-    let bestDist = Infinity;
-    for ( const dir of choices ) {
-      const d = DIRS[ dir ];
-      const nx = g.x + d.x;
-      const ny = g.y + d.y;
-      const dist = Math.abs( nx - px ) + Math.abs( ny - py );
-      if ( dist < bestDist ) {
-        bestDist = dist;
-        best = dir;
-      }
+  const px = Math.round( p.x );
+  const py = Math.round( p.y );
+
+  // Clyde: si esta cerca (Manhattan <= 8) elige direccion aleatoria.
+  if ( g.kind === 'clyde' ) {
+    const dist = Math.abs( g.x - px ) + Math.abs( g.y - py );
+    if ( dist <= 8 ) {
+      g.dir = choices[ Math.floor( Math.random() * choices.length ) ];
+      return;
     }
-    g.dir = best;
-  } else {
-    g.dir = choices[ Math.floor( Math.random() * choices.length ) ];
   }
+
+  // Calcular el objetivo (tx, ty) segun el tipo de fantasma.
+  let tx = px;
+  let ty = py;
+  if ( g.kind === 'pinky' ) {
+    const d = DIRS[ p.dir ];
+    tx = px + d.x * 4;
+    ty = py + d.y * 4;
+  } else if ( g.kind === 'inky' ) {
+    const b = game.ghosts[ 0 ]; // Blinky
+    const bx = Math.round( b.x );
+    const by = Math.round( b.y );
+    tx = bx + 2 * ( px - bx );
+    ty = by + 2 * ( py - by );
+  }
+  // blinky y clyde (dist > 8): objetivo = posicion de PacMan (px, py)
+
+  let best = choices[ 0 ];
+  let bestDist = Infinity;
+  for ( const dir of choices ) {
+    const d = DIRS[ dir ];
+    const nx = g.x + d.x;
+    const ny = g.y + d.y;
+    const dist = Math.abs( nx - tx ) + Math.abs( ny - ty );
+    if ( dist < bestDist ) {
+      bestDist = dist;
+      best = dir;
+    }
+  }
+  g.dir = best;
 }
 
 function moveGhost( game, g ) {
