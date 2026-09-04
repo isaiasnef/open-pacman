@@ -197,7 +197,7 @@ function decideGhost( game, g ) {
 }
 
 function moveGhost( game, g ) {
-  if ( !g.active ) return; // congelado hasta su turno de activacion
+  if ( !g.active || g.eaten ) return; // congelado hasta activacion / fijo en modo ojos
   const grid = game.grid;
   const width = grid[ 0 ].length;
 
@@ -246,16 +246,28 @@ function update( game ) {
   activateDue( game );
   game.ghosts.forEach( ( g ) => moveGhost( game, g ) );
 
+  const now = performance.now();
   for ( const g of game.ghosts ) {
-    if ( collides( game.pacman, g ) ) {
-      game.lives--;
-      if ( game.lives <= 0 ) {
-        game.state = 'lost';
-        return;
-      }
-      resetPositions( game );
-      break;
+    if ( !collides( game.pacman, g ) || g.eaten ) continue;
+
+    // Fantasma asustado: se come en vez de matar.
+    if ( game.frightUntil !== null && now < game.frightUntil ) {
+      const points = [ 200, 400, 800, 1600 ][ Math.min( game.ghostsEaten, 3 ) ];
+      game.score += points;
+      game.ghostsEaten++;
+      g.eaten = true;
+      g.reappearAt = now + 3000;
+      continue;
     }
+
+    // Fantasma normal: resta vida (comportamiento actual).
+    game.lives--;
+    if ( game.lives <= 0 ) {
+      game.state = 'lost';
+      return;
+    }
+    resetPositions( game );
+    break;
   }
 
   if ( game.dotsRemaining <= 0 ) game.state = 'won';
