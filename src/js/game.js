@@ -247,6 +247,18 @@ function update( game ) {
   game.ghosts.forEach( ( g ) => moveGhost( game, g ) );
 
   const now = performance.now();
+
+  // Reaparicion: fantasmas comidos vuelven a su pen tras 3 s.
+  game.ghosts.forEach( ( g, i ) => {
+    if ( !g.eaten || g.reappearAt === null || now < g.reappearAt ) return;
+    const start = GHOST_STARTS[ i ];
+    g.x = start.x;
+    g.y = start.y;
+    g.dir = 'up';
+    g.eaten = false;
+    g.reappearAt = null;
+  } );
+
   for ( const g of game.ghosts ) {
     if ( !collides( game.pacman, g ) || g.eaten ) continue;
 
