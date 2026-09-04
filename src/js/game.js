@@ -21,7 +21,7 @@ function createGame() {
   grid[ PACMAN_START.y ][ PACMAN_START.x ] = 0;
 
   let dots = 0;
-  for ( const row of grid ) for ( const v of row ) if ( v === 2 ) dots++;
+  for ( const row of grid ) for ( const v of row ) if ( v === 2 || v === 4 ) dots++;
 
   // T0: instante de arranque para la activacion escalonada (tiempo real).
   const T0 = performance.now();
@@ -32,6 +32,8 @@ function createGame() {
     lives: 3,
     dotsRemaining: dots,
     grid,
+    frightUntil: null,
+    ghostsEaten: 0,
     pacman: {
       x: PACMAN_START.x,
       y: PACMAN_START.y,
@@ -47,6 +49,8 @@ function createGame() {
       kind: g.kind,
       active: false,
       activateAt: T0 + i * 2000,
+      eaten: false,
+      reappearAt: null,
     } ) ),
   };
 }
@@ -104,6 +108,18 @@ function movePacman( game ) {
       grid[ p.y ][ p.x ] = 0;
       game.score += 10;
       game.dotsRemaining--;
+    }
+    // Comer power pellet: activa modo asustado, resetea contador, invierte direcciones.
+    if ( grid[ p.y ][ p.x ] === 4 ) {
+      grid[ p.y ][ p.x ] = 0;
+      game.score += 50;
+      game.dotsRemaining--;
+      const now = performance.now();
+      game.frightUntil = now + 12000;
+      game.ghostsEaten = 0;
+      for ( const g of game.ghosts ) {
+        if ( !g.eaten && g.active ) g.dir = OPPOSITE[ g.dir ];
+      }
     }
     // Si no puede seguir, se detiene en la celda.
     if ( !canMove( grid, p.x, p.y, p.dir, 'pacman' ) ) return;
@@ -181,7 +197,7 @@ function decideGhost( game, g ) {
 }
 
 function moveGhost( game, g ) {
-  if ( !g.active ) return; // congelado hasta su turno de activacion
+  if ( !g.active || g.eaten ) return; // congelado hasta activacion / fijo en modo ojos
   const grid = game.grid;
   const width = grid[ 0 ].length;
 
@@ -213,6 +229,8 @@ function resetPositions( game ) {
     g.dir = 'up';
     g.active = false;
     g.activateAt = T0 + i * 2000;
+    g.eaten = false;
+    g.reappearAt = null;
   } );
 }
 
@@ -230,16 +248,46 @@ function update( game ) {
   activateDue( game );
   game.ghosts.forEach( ( g ) => moveGhost( game, g ) );
 
+  const now = performance.now();
+
+  // Expiracion del modo asustado: vuelve a normal y resetea el contador.
+  if ( game.frightUntil !== null && now >= game.frightUntil ) {
+    game.frightUntil = null;
+    game.ghostsEaten = 0;
+  }
+
+  // Reaparicion: fantasmas comidos vuelven a su pen tras 3 s.
+  game.ghosts.forEach( ( g, i ) => {
+    if ( !g.eaten || g.reappearAt === null || now < g.reappearAt ) return;
+    const start = GHOST_STARTS[ i ];
+    g.x = start.x;
+    g.y = start.y;
+    g.dir = 'up';
+    g.eaten = false;
+    g.reappearAt = null;
+  } );
+
   for ( const g of game.ghosts ) {
-    if ( collides( game.pacman, g ) ) {
-      game.lives--;
-      if ( game.lives <= 0 ) {
-        game.state = 'lost';
-        return;
-      }
-      resetPositions( game );
-      break;
+    if ( !collides( game.pacman, g ) || g.eaten ) continue;
+
+    // Fantasma asustado: se come en vez de matar.
+    if ( game.frightUntil !== null && now < game.frightUntil ) {
+      const points = [ 200, 400, 800, 1600 ][ Math.min( game.ghostsEaten, 3 ) ];
+      game.score += points;
+      game.ghostsEaten++;
+      g.eaten = true;
+      g.reappearAt = now + 3000;
+      continue;
     }
+
+    // Fantasma normal: resta vida (comportamiento actual).
+    game.lives--;
+    if ( game.lives <= 0 ) {
+      game.state = 'lost';
+      return;
+    }
+    resetPositions( game );
+    break;
   }
 
   if ( game.dotsRemaining <= 0 ) game.state = 'won';

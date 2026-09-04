@@ -79,6 +79,20 @@ function drawDots( ctx, grid ) {
   }
 }
 
+function drawPowerPellets( ctx, grid, frame ) {
+  if ( Math.floor( frame / 8 ) % 2 !== 0 ) return;
+  ctx.fillStyle = DOT_COLOR;
+  for ( let y = 0; y < grid.length; y++ ) {
+    for ( let x = 0; x < grid[ 0 ].length; x++ ) {
+      if ( grid[ y ][ x ] !== 4 ) continue;
+      const { cx, cy } = cellCenter( x, y );
+      ctx.beginPath();
+      ctx.arc( cx, cy, 5, 0, Math.PI * 2 );
+      ctx.fill();
+    }
+  }
+}
+
 function drawPacman( ctx, p, frame ) {
   const { cx, cy } = cellCenter( p.x, p.y );
   let rot = 0;
@@ -98,15 +112,24 @@ function drawPacman( ctx, p, frame ) {
   ctx.fill();
 }
 
-function drawGhost( ctx, g, color ) {
+const FRIGHT_COLOR = '#2135ff';
+const WARN_WHITE   = '#ffffff';
+
+// mode: 'normal' | 'frightened' | 'warning' (parpadeo blanco/azul)
+function drawGhost( ctx, g, color, mode ) {
   const { cx, cy } = cellCenter( g.x, g.y );
   const r = TILE / 2 - 1;
-  const top = cy - r;
   const bottom = cy + r;
   const left = cx - r;
   const right = cx + r;
 
-  ctx.fillStyle = color;
+  let bodyColor = color;
+  if ( mode === 'frightened' ) bodyColor = FRIGHT_COLOR;
+  else if ( mode === 'warning' && Math.floor( performance.now() / 500 ) % 2 !== 0 ) {
+    bodyColor = WARN_WHITE;
+  }
+
+  ctx.fillStyle = bodyColor;
   ctx.beginPath();
   ctx.arc( cx, cy - 1, r, Math.PI, 0, false ); // cabeza
   ctx.lineTo( right, bottom );
@@ -118,10 +141,49 @@ function drawGhost( ctx, g, color ) {
   ctx.closePath();
   ctx.fill();
 
-  // ojos mirando segun direccion
-  const dir = DIRS[ g.dir ] || { x: 0, y: 0 };
-  const ex = dir.x * 1.6;
-  const ey = dir.y * 1.6;
+  const frightened = mode === 'frightened' || mode === 'warning';
+
+  // ojos mirando segun direccion (sin pupilas cuando asustado)
+  if ( !frightened ) {
+    const dir = DIRS[ g.dir ] || { x: 0, y: 0 };
+    const ex = dir.x * 1.6;
+    const ey = dir.y * 1.6;
+    for ( const off of [ -3.5, 3.5 ] ) {
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc( cx + off, cy - 1, 3, 0, Math.PI * 2 );
+      ctx.fill();
+      ctx.fillStyle = '#0000bb';
+      ctx.beginPath();
+      ctx.arc( cx + off + ex, cy - 1 + ey, 1.5, 0, Math.PI * 2 );
+      ctx.fill();
+    }
+  } else {
+    for ( const off of [ -3.5, 3.5 ] ) {
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc( cx + off, cy - 1, 3, 0, Math.PI * 2 );
+      ctx.fill();
+    }
+  }
+
+  // boca de miedo (solo asustado)
+  if ( frightened ) {
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for ( let i = -3; i <= 3; i += 2 ) {
+      const bx = cx + i * 1.4;
+      ctx.moveTo( bx, cy + 5 );
+      ctx.lineTo( bx + 1, cy + 7 );
+    }
+    ctx.stroke();
+  }
+}
+
+// Solo los dos ojos del fantasma comido (modo "ojos"), fijos en su celda.
+function drawGhostEyes( ctx, g ) {
+  const { cx, cy } = cellCenter( g.x, g.y );
   for ( const off of [ -3.5, 3.5 ] ) {
     ctx.fillStyle = '#fff';
     ctx.beginPath();
@@ -129,7 +191,7 @@ function drawGhost( ctx, g, color ) {
     ctx.fill();
     ctx.fillStyle = '#0000bb';
     ctx.beginPath();
-    ctx.arc( cx + off + ex, cy - 1 + ey, 1.5, 0, Math.PI * 2 );
+    ctx.arc( cx + off, cy - 1, 1.5, 0, Math.PI * 2 );
     ctx.fill();
   }
 }
@@ -157,8 +219,17 @@ function draw( ctx, game, frame ) {
   drawWalls( ctx, grid );
   drawDoor( ctx, grid );
   drawDots( ctx, grid );
+  drawPowerPellets( ctx, grid, frame );
   drawPacman( ctx, game.pacman, frame );
-  game.ghosts.forEach( ( g, i ) => drawGhost( ctx, g, GHOST_COLORS[ i ] || '#ff0000' ) );
+  const now = performance.now();
+  const frightActive = game.frightUntil !== null && now < game.frightUntil;
+  const warning = frightActive && ( game.frightUntil - now ) < 4000;
+  game.ghosts.forEach( ( g, i ) => {
+    if ( g.eaten ) { drawGhostEyes( ctx, g ); return; }
+    let mode = 'normal';
+    if ( frightActive && !g.eaten ) mode = warning ? 'warning' : 'frightened';
+    drawGhost( ctx, g, GHOST_COLORS[ i ] || '#ff0000', mode );
+  } );
   drawHUD( ctx, game, W );
 }
 
