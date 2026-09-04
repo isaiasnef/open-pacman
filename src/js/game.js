@@ -229,6 +229,8 @@ function resetPositions( game ) {
     g.dir = 'up';
     g.active = false;
     g.activateAt = T0 + i * 2000;
+    g.eaten = false;
+    g.reappearAt = null;
   } );
 }
 
@@ -247,6 +249,12 @@ function update( game ) {
   game.ghosts.forEach( ( g ) => moveGhost( game, g ) );
 
   const now = performance.now();
+
+  // Expiracion del modo asustado: vuelve a normal y resetea el contador.
+  if ( game.frightUntil !== null && now >= game.frightUntil ) {
+    game.frightUntil = null;
+    game.ghostsEaten = 0;
+  }
 
   // Reaparicion: fantasmas comidos vuelven a su pen tras 3 s.
   game.ghosts.forEach( ( g, i ) => {
