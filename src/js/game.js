@@ -21,7 +21,7 @@ function createGame() {
   grid[ PACMAN_START.y ][ PACMAN_START.x ] = 0;
 
   let dots = 0;
-  for ( const row of grid ) for ( const v of row ) if ( v === 2 ) dots++;
+  for ( const row of grid ) for ( const v of row ) if ( v === 2 || v === 4 ) dots++;
 
   // T0: instante de arranque para la activacion escalonada (tiempo real).
   const T0 = performance.now();
@@ -32,6 +32,8 @@ function createGame() {
     lives: 3,
     dotsRemaining: dots,
     grid,
+    frightUntil: null,
+    ghostsEaten: 0,
     pacman: {
       x: PACMAN_START.x,
       y: PACMAN_START.y,
@@ -47,6 +49,8 @@ function createGame() {
       kind: g.kind,
       active: false,
       activateAt: T0 + i * 2000,
+      eaten: false,
+      reappearAt: null,
     } ) ),
   };
 }
@@ -104,6 +108,18 @@ function movePacman( game ) {
       grid[ p.y ][ p.x ] = 0;
       game.score += 10;
       game.dotsRemaining--;
+    }
+    // Comer power pellet: activa modo asustado, resetea contador, invierte direcciones.
+    if ( grid[ p.y ][ p.x ] === 4 ) {
+      grid[ p.y ][ p.x ] = 0;
+      game.score += 50;
+      game.dotsRemaining--;
+      const now = performance.now();
+      game.frightUntil = now + 12000;
+      game.ghostsEaten = 0;
+      for ( const g of game.ghosts ) {
+        if ( !g.eaten && g.active ) g.dir = OPPOSITE[ g.dir ];
+      }
     }
     // Si no puede seguir, se detiene en la celda.
     if ( !canMove( grid, p.x, p.y, p.dir, 'pacman' ) ) return;
