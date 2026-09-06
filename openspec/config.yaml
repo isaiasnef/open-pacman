@@ -1,32 +1,32 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
+# Contexto del proyecto (opcional)
+# Se muestra a la IA al crear artefactos.
+# Agrega tu stack tecnológico, convenciones, guías de estilo, conocimiento de dominio, etc.
+# Ejemplo:
 #   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+#     Stack: TypeScript, React, Node.js
+#     Usamos commits convencionales
+#     Dominio: plataforma e-commerce
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
+# Reglas por artefacto (opcional)
+# Agrega reglas personalizadas para artefactos específicos.
+# Ejemplo:
 #   rules:
 #     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
+#       - Mantener propuestas bajo 500 palabras
+#       - Incluir siempre una sección "No objetivos"
 #     tasks:
-#       - Break tasks into chunks of max 2 hours
+#       - Dividir tareas en bloques de máximo 2 horas
 
-# Per-operation guidance (optional)
-# Add advisory guidance for how apply and archive work should be conducted.
-# This is separate from artifact rules above.
-# Example:
+# Guía por operación (opcional)
+# Agrega orientación sobre cómo se deben ejecutar apply y archive.
+# Esto es separado de las reglas de artefactos anteriores.
+# Ejemplo:
 #   operations:
 #     apply:
 #       guidance:
-#         - Keep test summaries concise
+#         - Mantener resúmenes de pruebas concisos
 #     archive:
 #       guidance:
-#         - Summarize the archive outcome before finishing
+#         - Resumir el resultado del archivo antes de terminar
