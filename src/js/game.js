@@ -50,7 +50,7 @@ function createGame() {
       active: false,
       activateAt: T0 + i * 2000,
       eaten: false,
-      reappearAt: null,
+      eatenAt: null,
     } ) ),
   };
 }
@@ -141,45 +141,54 @@ function decideGhost( game, g ) {
   // Sin salida (callejon): permitir el giro de 180.
   const choices = options.length ? options : [ '' + OPPOSITE[ g.dir ] ];
 
-  const px = Math.round( p.x );
-  const py = Math.round( p.y );
+  let tx;
+  let ty;
 
-  // Salida de pen explicita: dentro del recinto (pen + fila de puerta),
-  // navegar a la columna de puerta mas cercana y subir hasta salir.
-  if ( g.y >= 12 && g.y <= 15 && g.x >= 11 && g.x <= 16 ) {
-    const door = Math.abs( g.x - 13 ) <= Math.abs( g.x - 14 ) ? 13 : 14;
-    if ( g.x !== door ) {
-      g.dir = g.x < door ? 'right' : 'left';
-    } else {
-      g.dir = 'up'; // subir a traves de la puerta hasta el corredor
-    }
-    return;
-  }
+  if ( g.eaten ) {
+    // Ojos navegando: objetivo fijo = celda de inicio, sin logica de personalidad ni salida de pen.
+    const idx = game.ghosts.indexOf( g );
+    tx = GHOST_STARTS[ idx ].x;
+    ty = GHOST_STARTS[ idx ].y;
+  } else {
+    const px = Math.round( p.x );
+    const py = Math.round( p.y );
 
-  // Clyde: si esta cerca (Manhattan <= 8) elige direccion aleatoria.
-  if ( g.kind === 'clyde' ) {
-    const dist = Math.abs( g.x - px ) + Math.abs( g.y - py );
-    if ( dist <= 8 ) {
-      g.dir = choices[ Math.floor( Math.random() * choices.length ) ];
+    // Salida de pen explicita: dentro del recinto (pen + fila de puerta),
+    // navegar a la columna de puerta mas cercana y subir hasta salir.
+    if ( g.y >= 12 && g.y <= 15 && g.x >= 11 && g.x <= 16 ) {
+      const door = Math.abs( g.x - 13 ) <= Math.abs( g.x - 14 ) ? 13 : 14;
+      if ( g.x !== door ) {
+        g.dir = g.x < door ? 'right' : 'left';
+      } else {
+        g.dir = 'up'; // subir a traves de la puerta hasta el corredor
+      }
       return;
     }
-  }
 
-  // Calcular el objetivo (tx, ty) segun el tipo de fantasma.
-  let tx = px;
-  let ty = py;
-  if ( g.kind === 'pinky' ) {
-    const d = DIRS[ p.dir ];
-    tx = px + d.x * 4;
-    ty = py + d.y * 4;
-  } else if ( g.kind === 'inky' ) {
-    const b = game.ghosts[ 0 ]; // Blinky
-    const bx = Math.round( b.x );
-    const by = Math.round( b.y );
-    tx = bx + 2 * ( px - bx );
-    ty = by + 2 * ( py - by );
+    // Clyde: si esta cerca (Manhattan <= 8) elige direccion aleatoria.
+    if ( g.kind === 'clyde' ) {
+      const dist = Math.abs( g.x - px ) + Math.abs( g.y - py );
+      if ( dist <= 8 ) {
+        g.dir = choices[ Math.floor( Math.random() * choices.length ) ];
+        return;
+      }
+    }
+
+    // Calcular el objetivo (tx, ty) segun el tipo de fantasma.
+    tx = px;
+    ty = py;
+    if ( g.kind === 'pinky' ) {
+      const d = DIRS[ p.dir ];
+      tx = px + d.x * 4;
+      ty = py + d.y * 4;
+    } else if ( g.kind === 'inky' ) {
+      const b = game.ghosts[ 0 ]; // Blinky
+      const bx = Math.round( b.x );
+      const by = Math.round( b.y );
+      tx = bx + 2 * ( px - bx );
+      ty = by + 2 * ( py - by );
+    }
   }
-  // blinky y clyde (dist > 8): objetivo = posicion de PacMan (px, py)
 
   let best = choices[ 0 ];
   let bestDist = Infinity;
@@ -197,20 +206,33 @@ function decideGhost( game, g ) {
 }
 
 function moveGhost( game, g ) {
-  if ( !g.active || g.eaten ) return; // congelado hasta activacion / fijo en modo ojos
+  if ( !g.active ) return; // congelado hasta activacion
   const grid = game.grid;
   const width = grid[ 0 ].length;
+  const spd = g.eaten ? g.speed * 2 : g.speed;
 
   if ( aligned( g.x ) && aligned( g.y ) ) {
     g.x = Math.round( g.x );
     g.y = Math.round( g.y );
+
+    // Deteccion de llegada: ojo alineado en su celda objetivo -> reaparecer.
+    if ( g.eaten ) {
+      const idx = game.ghosts.indexOf( g );
+      const target = GHOST_STARTS[ idx ];
+      if ( g.x === target.x && g.y === target.y ) {
+        g.eaten = false;
+        g.dir = 'up';
+        return;
+      }
+    }
+
     decideGhost( game, g );
     if ( !canMove( grid, g.x, g.y, g.dir, 'ghost' ) ) return;
   }
 
   const d = DIRS[ g.dir ];
-  g.x += d.x * g.speed;
-  g.y += d.y * g.speed;
+  g.x += d.x * spd;
+  g.y += d.y * spd;
   wrapTunnel( g, width );
 }
 
@@ -230,7 +252,7 @@ function resetPositions( game ) {
     g.active = false;
     g.activateAt = T0 + i * 2000;
     g.eaten = false;
-    g.reappearAt = null;
+    g.eatenAt = null;
   } );
 }
 
@@ -256,15 +278,16 @@ function update( game ) {
     game.ghostsEaten = 0;
   }
 
-  // Reaparicion: fantasmas comidos vuelven a su pen tras 3 s.
+  // Timeout de seguridad: si un ojo no llego tras 10 s, teletransportar.
   game.ghosts.forEach( ( g, i ) => {
-    if ( !g.eaten || g.reappearAt === null || now < g.reappearAt ) return;
+    if ( !g.eaten || g.eatenAt === null ) return;
     const start = GHOST_STARTS[ i ];
-    g.x = start.x;
-    g.y = start.y;
-    g.dir = 'up';
-    g.eaten = false;
-    g.reappearAt = null;
+    if ( now - g.eatenAt > 10000 && !( Math.round( g.x ) === start.x && Math.round( g.y ) === start.y ) ) {
+      g.x = start.x;
+      g.y = start.y;
+      g.dir = 'up';
+      g.eaten = false;
+    }
   } );
 
   for ( const g of game.ghosts ) {
@@ -276,7 +299,9 @@ function update( game ) {
       game.score += points;
       game.ghostsEaten++;
       g.eaten = true;
-      g.reappearAt = now + 3000;
+      g.x = Math.round( g.x );
+      g.y = Math.round( g.y );
+      g.eatenAt = performance.now();
       continue;
     }
 

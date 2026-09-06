@@ -1,0 +1,32 @@
+schema: spec-driven
+
+# Contexto del proyecto (opcional)
+# Se muestra a la IA al crear artefactos.
+# Agrega tu stack tecnológico, convenciones, guías de estilo, conocimiento de dominio, etc.
+# Ejemplo:
+#   context: |
+#     Stack: TypeScript, React, Node.js
+#     Usamos commits convencionales
+#     Dominio: plataforma e-commerce
+
+# Reglas por artefacto (opcional)
+# Agrega reglas personalizadas para artefactos específicos.
+# Ejemplo:
+#   rules:
+#     proposal:
+#       - Mantener propuestas bajo 500 palabras
+#       - Incluir siempre una sección "No objetivos"
+#     tasks:
+#       - Dividir tareas en bloques de máximo 2 horas
+
+# Guía por operación (opcional)
+# Agrega orientación sobre cómo se deben ejecutar apply y archive.
+# Esto es separado de las reglas de artefactos anteriores.
+# Ejemplo:
+#   operations:
+#     apply:
+#       guidance:
+#         - Mantener resúmenes de pruebas concisos
+#     archive:
+#       guidance:
+#         - Resumir el resultado del archivo antes de terminar
